@@ -25,15 +25,16 @@ You can read more about `Facebook's Graph API here`_.
 * ``timeout`` - A ``float`` describing (in seconds) how long the client will be
   waiting for a response from Facebook's servers. `See more here`_.
 * ``version`` - A ``string`` describing the `version of Facebook's Graph API to
-  use`_. Valid API versions are ``2.0``, ``2.1`` and ``2.2``. The
-  default version is ``2.0`` and is used if the version keyword argument is not
-  provided.
+  use`_. The default version is the oldest current version. It is used if
+  the version keyword argument is not provided.
 * ``proxies`` - A ``dict`` with proxy-settings that Requests should use. `See Requests documentation`_.
+* ``session`` - A `Requests Session object`_.
 
 .. _Read more about access tokens here: https://developers.facebook.com/docs/facebook-login/access-tokens
 .. _See more here: http://docs.python-requests.org/en/latest/user/quickstart/#timeouts
-.. _version of Facebook's Graph API to use: https://developers.facebook.com/docs/apps/versions
+.. _version of Facebook's Graph API to use: https://developers.facebook.com/docs/apps/changelog#versions
 .. _See Requests documentation: http://www.python-requests.org/en/latest/user/advanced/#proxies
+.. _Requests Session object: http://docs.python-requests.org/en/master/user/advanced/#session-objects
 
 **Example**
 
@@ -57,6 +58,7 @@ Returns the given object from the graph as a ``dict``. A list of
 **Parameters**
 
 * ``id`` –  A ``string`` that is a unique ID for that particular resource.
+* ``**args`` (optional) - keyword args to be passed as query params
 
 **Example**
 
@@ -64,6 +66,12 @@ Returns the given object from the graph as a ``dict``. A list of
 
     post = graph.get_object(id='post_id')
     print(post['message'])
+
+.. code-block:: python
+
+    event = graph.get_object(id='event_id', fields='attending_count,declined_count')
+    print(event['attending_count'])
+    print(event['declined_count'])
 
 
 get_objects
@@ -75,6 +83,7 @@ maps to an object.
 **Parameters**
 
 * ``ids`` – A ``list`` containing IDs for multiple resources.
+* ``**args`` (optional) - keyword args to be passed as query params
 
 **Example**
 
@@ -86,6 +95,15 @@ maps to an object.
     # Each given id maps to an object.
     for post_id in post_ids:
         print(posts[post_id]['created_time'])
+
+.. code-block:: python
+
+    event_ids = ['event_id_1', 'event_id_2']
+    events = graph.get_objects(ids=event_ids, fields='attending_count,declined_count')
+
+    # Each given id maps to an object the contains the requested fields.
+    for event_id in event_ids:
+        print(posts[event_id]['declined_count'])
 
 
 get_connections
@@ -171,10 +189,10 @@ authenticated user's wall if no ``profile_id`` is specified.
 
     attachment =  {
         'name': 'Link name'
-        'link': 'http://www.example.com/',
+        'link': 'https://www.example.com/',
         'caption': 'Check out this example',
         'description': 'This is a longer description of the attachment',
-        'picture': 'http://www.example.com/thumbnail.jpg'
+        'picture': 'https://www.example.com/thumbnail.jpg'
     }
 
     graph.put_wall_post(message='Check this out...', attachment=attachment)
