@@ -33,9 +33,9 @@ import json
 import re
 
 try:
-    from urllib.parse import parse_qs, urlencode
+    from urllib.parse import parse_qs, urlencode, urlparse
 except ImportError:
-    from urlparse import parse_qs
+    from urlparse import parse_qs, urlparse
     from urllib import urlencode
 
 from . import version
@@ -45,7 +45,8 @@ __version__ = version.__version__
 
 FACEBOOK_GRAPH_URL = "https://graph.facebook.com/"
 FACEBOOK_OAUTH_DIALOG_URL = "https://www.facebook.com/dialog/oauth?"
-VALID_API_VERSIONS = ["2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8"]
+VALID_API_VERSIONS = ["2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11"]
+VALID_SEARCH_TYPES = ["page", "event", "group", "place", "placetopic", "user"]
 
 
 class GraphAPI(object):
@@ -88,7 +89,7 @@ class GraphAPI(object):
         self.session = session or requests.Session()
 
         if version:
-            version_regex = re.compile("^\d\.\d$")
+            version_regex = re.compile("^\d\.\d{1,2}$")
             match = version_regex.search(str(version))
             if match is not None:
                 if str(version) not in VALID_API_VERSIONS:
@@ -101,6 +102,13 @@ class GraphAPI(object):
                                     " following format: #.# (e.g. 2.0).")
         else:
             self.version = "v" + default_version
+
+    def get_permissions(self, user_id):
+        """Fetches the permissions object from the graph."""
+        response = self.request(
+            "{0}/{1}/permissions".format(self.version, user_id), {}
+            )["data"]
+        return {x["permission"] for x in response if x["status"] == "granted"}
 
     def get_object(self, id, **args):
         """Fetches the given object from the graph."""
@@ -115,10 +123,39 @@ class GraphAPI(object):
         args["ids"] = ",".join(ids)
         return self.request(self.version + "/", args)
 
+    def search(self, type, **args):
+        """Fetches all objects of a given type from the graph.
+
+        Returns all objects of a given type from the graph as a dict.
+        """
+
+        if type not in VALID_SEARCH_TYPES:
+            raise GraphAPIError('Valid types are: %s'
+                                % ', '.join(VALID_SEARCH_TYPES))
+
+        args["type"] = type
+        return self.request(self.version + "/search/", args)
+
     def get_connections(self, id, connection_name, **args):
         """Fetches the connections for given object."""
         return self.request(
             "{0}/{1}/{2}".format(self.version, id, connection_name), args)
+
+    def get_all_connections(self, id, connection_name, **args):
+        """Get all pages from a get_connections call
+
+        This will iterate over all pages returned by a get_connections call
+        and yield the individual items.
+        """
+        while True:
+            page = self.get_connections(id, connection_name, **args)
+            for post in page['data']:
+                yield post
+            next = page.get('paging', {}).get('next')
+            if not next:
+                return
+            args = parse_qs(urlparse(next).query)
+            del args['access_token']
 
     def put_object(self, parent_object, connection_name, **data):
         """Writes the given object to the graph, connected to the given parent.
@@ -144,25 +181,6 @@ class GraphAPI(object):
             "{0}/{1}/{2}".format(self.version, parent_object, connection_name),
             post_args=data,
             method="POST")
-
-    def put_wall_post(self, message, attachment={}, profile_id="me"):
-        """Writes a wall post to the given profile's wall.
-
-        We default to writing to the authenticated user's wall if no
-        profile_id is specified.
-
-        attachment adds a structured attachment to the status message
-        being posted to the Wall. It should be a dictionary of the form:
-
-            {"name": "Link name"
-             "link": "https://www.example.com/",
-             "caption": "{*actor*} posted a new review",
-             "description": "This is a longer description of the attachment",
-             "picture": "https://www.example.com/thumbnail.jpg"}
-
-        """
-        return self.put_object(profile_id, "feed", message=message,
-                               **attachment)
 
     def put_comment(self, object_id, message):
         """Writes the given comment on the given post."""
@@ -211,7 +229,7 @@ class GraphAPI(object):
         try:
             headers = response.headers
             version = headers["facebook-api-version"].replace("v", "")
-            return float(version)
+            return str(version)
         except Exception:
             raise GraphAPIError("API version number not available")
 
@@ -224,7 +242,8 @@ class GraphAPI(object):
         arguments.
 
         """
-
+        if args is None:
+            args = dict()
         if post_args is not None:
             method = "POST"
 
@@ -350,24 +369,24 @@ class GraphAPIError(Exception):
         self.code = None
         try:
             self.type = result["error_code"]
-        except:
+        except (KeyError, TypeError):
             self.type = ""
 
         # OAuth 2.0 Draft 10
         try:
             self.message = result["error_description"]
-        except:
+        except (KeyError, TypeError):
             # OAuth 2.0 Draft 00
             try:
                 self.message = result["error"]["message"]
                 self.code = result["error"].get("code")
                 if not self.type:
                     self.type = result["error"].get("type", "")
-            except:
+            except (KeyError, TypeError):
                 # REST server style
                 try:
                     self.message = result["error_msg"]
-                except:
+                except (KeyError, TypeError):
                     self.message = result
 
         Exception.__init__(self, self.message)
