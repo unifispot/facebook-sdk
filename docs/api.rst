@@ -43,7 +43,7 @@ You can read more about `Facebook's Graph API here`_.
 
     import facebook
 
-    graph = facebook.GraphAPI(access_token="your_token", version="2.11")
+    graph = facebook.GraphAPI(access_token="your_token", version="2.12")
 
 Methods
 -------
@@ -123,15 +123,9 @@ maps to an object.
 search
 ^^^^^^
 
-Returns all objects of a given type from the graph as a ``dict``.
+https://developers.facebook.com/docs/places/search
 
-Valid types are: event, group, page, place, placetopic, and user
-
-https://developers.facebook.com/docs/graph-api/using-graph-api#search
-
-Most types require the argument q, except:
-- place requires q, addres or center
-- placetopic doesn't require any additional argument
+Valid types are: place, placetopic
 
 **Parameters**
 
@@ -139,14 +133,6 @@ Most types require the argument q, except:
 * ``**args`` (optional) - keyword args to be passed as query params
 
 **Example**
-
-.. code-block:: python
-
-    # Search for a user named "Mark Zuckerberg" and show their ID and name.
-    users = graph.search(type='user',q='Mark Zuckerberg')
-
-    for user in users['data']:
-        print('%s %s' % (user['id'],user['name'].encode()))
 
 .. code-block:: python
 
@@ -306,30 +292,6 @@ Deletes the object with the given ID from the graph.
 
     graph.delete_object(id='post_id')
 
-auth_url
-^^^^^^^^^^^^^
-https://developers.facebook.com/docs/facebook-login/manually-build-a-login-flow
-
-Generates Facebook login URL to request access token and permissions.
-
-**Parameters**
-
-* ``app_id`` - ``integer`` Facebook application id that is requesting for
-  authentication and authorisation.
-* ``canvas_url`` - ``string`` Return URL after successful authentication,
-  usually parses returned Facebook response for authorisation request.
-* ``perms`` - ``list`` List of requested permissions.
-
-**Example**
-
-.. code-block:: python
-
-    app_id = 1231241241
-    canvas_url = 'https://domain.com/that-handles-auth-response/'
-    perms = ['manage_pages','publish_pages']
-    fb_login_url = graph.auth_url(app_id, canvas_url, perms)
-    print(fb_login_url)
-
 get_permissions
 ^^^^^^^^^^^^^^^
 
@@ -350,3 +312,27 @@ Returns the permissions granted to the app by the user with the given ID as a
     # "public_profile" permission.
     permissions = graph.get_permissions(user_id=12345)
     print('public_profile' in permissions)
+
+get_auth_url
+^^^^^^^^^^^^
+
+https://developers.facebook.com/docs/facebook-login/manually-build-a-login-flow
+
+Returns a Facebook login URL used to request an access token and permissions.
+
+**Parameters**
+
+* ``app_id`` - A ``string`` containing a Facebook appplication ID.
+* ``canvas_url`` - A ``string`` containing the URL where Facebook should
+  redirect after successful authentication.
+* ``perms`` - An optional ``list`` of requested Facebook permissions.
+
+**Example**
+
+.. code-block:: python
+
+    app_id = "1231241241"
+    canvas_url = "https://domain.com/that-handles-auth-response/"
+    perms = ["manage_pages","publish_pages"]
+    fb_login_url = graph.get_auth_url(app_id, canvas_url, perms)
+    print(fb_login_url)
